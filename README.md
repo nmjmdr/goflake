@@ -3,7 +3,7 @@ Flake implementation in go based on Factual\Skuld'd flake clojure implementation
 
 Current limitations:
 
-The current implementation does not store last timestamp in a persistant store. This means that:
+The current implementation does not store last timestamp in a persistent store. This means that:
 
 1. In case the process hosting flake is stopped
 2. The system time of the node hosting the flake process is moved back
