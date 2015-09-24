@@ -1,15 +1,15 @@
 package flake
 
 import (
-	"time"
-	"sync"
 	"errors"
-	"os"
-	"math"
 	"macNodeId"
+	"math"
+	"os"
+	"sync"
+	"time"
 )
 
-// Copy of Factual\Skuld's implementation of Flake Id
+// Derived from Factual\Skuld's implementation of Flake Id
 // 160 bit flake id
 
 /*
@@ -21,10 +21,10 @@ import (
 
 /* follows a big endian approach to the id */
 /* this means:
-  64 --> byte[0] to byte[7](inclusive)
-  32 --> byte[8] to byte [11](inclusive)
-  48 --> byte[12] byte[17](inclusive)
-  16 --> byte[18] to byte[19](inclusive)
+64 --> byte[0] to byte[7](inclusive)
+32 --> byte[8] to byte [11](inclusive)
+48 --> byte[12] byte[17](inclusive)
+16 --> byte[18] to byte[19](inclusive)
 */
 
 // Consider the time to start from year 2010
@@ -42,8 +42,7 @@ var nodeId []byte
 var initialized bool
 var initMutex = &sync.Mutex{}
 
-
-/* 
+/*
  Process Id related assumptions:
  the assumption here is that process ids will not execced int16
  that is max: 65535
@@ -53,44 +52,40 @@ var initMutex = &sync.Mutex{}
  also it is assumed that process ids cannot be negative
 */
 
-
 type flk struct {
 }
 
-type NodeId  interface {
+type NodeId interface {
 	// a 48 byte node id
-	Id() ([]byte,error)
+	Id() ([]byte, error)
 }
 
-
-
-func FlakeNode(nId NodeId) (*flk,error) {
+func FlakeNode(nId NodeId) (*flk, error) {
 	initMutex.Lock()
 	defer initMutex.Unlock()
-	var err error	
+	var err error
 	if !initialized {
-		nodeId,err = nId.Id()
+		nodeId, err = nId.Id()
 		initialized = true
 	}
-	return new(flk),err
+	return new(flk), err
 }
 
-func FlakeNodeWithMacId() (*flk,error) {
+func FlakeNodeWithMacId() (*flk, error) {
 
-	macId := new(macNodeId.MacNodeId) 
-	f,err := FlakeNode(macId)
-	
-	return f,err
+	macId := new(macNodeId.MacNodeId)
+	f, err := FlakeNode(macId)
+
+	return f, err
 }
 
-
-func putUint16(b []byte, v uint16,startIndex int) {
+func putUint16(b []byte, v uint16, startIndex int) {
 	b[startIndex] = byte(v >> 8)
 	startIndex++
 	b[startIndex] = byte(v)
 }
 
-func putUint64(b []byte, v uint64,startIndex int) {
+func putUint64(b []byte, v uint64, startIndex int) {
 	b[startIndex] = byte(v >> 56)
 	startIndex++
 	b[startIndex] = byte(v >> 48)
@@ -108,7 +103,7 @@ func putUint64(b []byte, v uint64,startIndex int) {
 	b[startIndex] = byte(v)
 }
 
-func putUint32(b []byte, v uint32,startIndex int) {
+func putUint32(b []byte, v uint32, startIndex int) {
 	b[startIndex] = byte(v >> 24)
 	startIndex++
 	b[startIndex] = byte(v >> 16)
@@ -118,20 +113,19 @@ func putUint32(b []byte, v uint32,startIndex int) {
 	b[startIndex] = byte(v)
 }
 
+func (f *flk) NextId() ([]byte, error) {
 
-func (f *flk) NextId() ([]byte,error) {
+	b := make([]byte, 20)
 
-	b := make([]byte,20)
-	
 	//copy the timestamp
 	now := time.Now().UnixNano()
 	if now < lastNow {
 		// time has moved backwards, this could lead to issues, error out
-		return nil,errors.New("Time has moved back, cannot proceed further")
+		return nil, errors.New("Time has moved back, cannot proceed further")
 	}
 
-	lastTs := (lastNow - epoch)/1000000
-	ts := (now - epoch)/1000000
+	lastTs := (lastNow - epoch) / 1000000
+	ts := (now - epoch) / 1000000
 
 	mutex.Lock()
 	// this is an edge case: in case there have been equal or more calls
@@ -141,14 +135,13 @@ func (f *flk) NextId() ([]byte,error) {
 	if (counter == maxCounter) && (ts <= lastTs) {
 		// then we need wait until ts is greater than
 		// lastTs - so that we do not end up repeatingids for the current node
-		for ;ts <= lastTs; {
-		now = time.Now().UnixNano()
-		ts = (now - epoch)/1000000
-		} 
+		for ts <= lastTs {
+			now = time.Now().UnixNano()
+			ts = (now - epoch) / 1000000
+		}
 	}
-	 
-	
-	putUint64(b,uint64(ts),0)
+
+	putUint64(b, uint64(ts), 0)
 	//increment the counter and assign to bytes
 	// has time moved since the last call?
 	if lastTs < ts {
@@ -156,26 +149,23 @@ func (f *flk) NextId() ([]byte,error) {
 		counter = 0
 	} // if the time has not moved since the last call, we just increment
 	// the counter
-	
+
 	counter++
-	putUint32(b,counter,8)
+	putUint32(b, counter, 8)
 
 	// save the lastnow to a file (to be done)
 	// so that we can determine if time has moved back
 	// frequently store lastNow to a file
 	// to ensure time cannot move back
-	lastNow = now    
+	lastNow = now
 
 	mutex.Unlock()
 
 	//copy the host id or node id
-	copy(b[12:(12+nodeIdLength)],nodeId)
-	
+	copy(b[12:(12+nodeIdLength)], nodeId)
+
 	//copy the process id
 	pid := uint16(os.Getpid())
-	putUint16(b,pid,18)
-	return b,nil
+	putUint16(b, pid, 18)
+	return b, nil
 }
-
-
-
