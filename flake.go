@@ -1,6 +1,7 @@
 package flake
 
 import (
+	"encoding/binary"
 	"errors"
 	"macNodeId"
 	"math"
@@ -9,7 +10,8 @@ import (
 	"time"
 )
 
-// Derived from Factual\Skuld's implementation of Flake Id
+//
+// Acknowledgement: Based on Factual\Skuld's implementation of Flake Id
 // 160 bit flake id
 
 /*
@@ -79,40 +81,6 @@ func FlakeNodeWithMacId() (*flk, error) {
 	return f, err
 }
 
-func putUint16(b []byte, v uint16, startIndex int) {
-	b[startIndex] = byte(v >> 8)
-	startIndex++
-	b[startIndex] = byte(v)
-}
-
-func putUint64(b []byte, v uint64, startIndex int) {
-	b[startIndex] = byte(v >> 56)
-	startIndex++
-	b[startIndex] = byte(v >> 48)
-	startIndex++
-	b[startIndex] = byte(v >> 40)
-	startIndex++
-	b[startIndex] = byte(v >> 32)
-	startIndex++
-	b[startIndex] = byte(v >> 24)
-	startIndex++
-	b[startIndex] = byte(v >> 16)
-	startIndex++
-	b[startIndex] = byte(v >> 8)
-	startIndex++
-	b[startIndex] = byte(v)
-}
-
-func putUint32(b []byte, v uint32, startIndex int) {
-	b[startIndex] = byte(v >> 24)
-	startIndex++
-	b[startIndex] = byte(v >> 16)
-	startIndex++
-	b[startIndex] = byte(v >> 8)
-	startIndex++
-	b[startIndex] = byte(v)
-}
-
 func (f *flk) NextId() ([]byte, error) {
 
 	b := make([]byte, 20)
@@ -141,7 +109,8 @@ func (f *flk) NextId() ([]byte, error) {
 		}
 	}
 
-	putUint64(b, uint64(ts), 0)
+	binary.BigEndian.PutUint64(b[0:8], uint64(ts))
+
 	//increment the counter and assign to bytes
 	// has time moved since the last call?
 	if lastTs < ts {
@@ -151,7 +120,7 @@ func (f *flk) NextId() ([]byte, error) {
 	// the counter
 
 	counter++
-	putUint32(b, counter, 8)
+	binary.BigEndian.PutUint32(b[8:12], counter)
 
 	// save the lastnow to a file (to be done)
 	// so that we can determine if time has moved back
@@ -166,6 +135,6 @@ func (f *flk) NextId() ([]byte, error) {
 
 	//copy the process id
 	pid := uint16(os.Getpid())
-	putUint16(b, pid, 18)
+	binary.BigEndian.PutUint16(b[18:20], pid)
 	return b, nil
 }
